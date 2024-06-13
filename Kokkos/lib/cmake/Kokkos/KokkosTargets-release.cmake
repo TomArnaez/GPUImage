@@ -8,7 +8,7 @@ set(CMAKE_IMPORT_FILE_VERSION 1)
 # Import target "Kokkos::kokkoscore" for configuration "Release"
 set_property(TARGET Kokkos::kokkoscore APPEND PROPERTY IMPORTED_CONFIGURATIONS RELEASE)
 set_target_properties(Kokkos::kokkoscore PROPERTIES
-  IMPORTED_LINK_INTERFACE_LANGUAGES_RELEASE "CXX"
+  IMPORTED_LINK_INTERFACE_LANGUAGES_RELEASE "CUDA"
   IMPORTED_LOCATION_RELEASE "${_IMPORT_PREFIX}/lib/kokkoscore.lib"
   )
 
@@ -18,7 +18,7 @@ list(APPEND _cmake_import_check_files_for_Kokkos::kokkoscore "${_IMPORT_PREFIX}/
 # Import target "Kokkos::kokkoscontainers" for configuration "Release"
 set_property(TARGET Kokkos::kokkoscontainers APPEND PROPERTY IMPORTED_CONFIGURATIONS RELEASE)
 set_target_properties(Kokkos::kokkoscontainers PROPERTIES
-  IMPORTED_LINK_INTERFACE_LANGUAGES_RELEASE "CXX"
+  IMPORTED_LINK_INTERFACE_LANGUAGES_RELEASE "CUDA"
   IMPORTED_LOCATION_RELEASE "${_IMPORT_PREFIX}/lib/kokkoscontainers.lib"
   )
 
@@ -28,7 +28,7 @@ list(APPEND _cmake_import_check_files_for_Kokkos::kokkoscontainers "${_IMPORT_PR
 # Import target "Kokkos::kokkossimd" for configuration "Release"
 set_property(TARGET Kokkos::kokkossimd APPEND PROPERTY IMPORTED_CONFIGURATIONS RELEASE)
 set_target_properties(Kokkos::kokkossimd PROPERTIES
-  IMPORTED_LINK_INTERFACE_LANGUAGES_RELEASE "CXX"
+  IMPORTED_LINK_INTERFACE_LANGUAGES_RELEASE "CUDA"
   IMPORTED_LOCATION_RELEASE "${_IMPORT_PREFIX}/lib/kokkossimd.lib"
   )
 

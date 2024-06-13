@@ -13,8 +13,11 @@ namespace ko::transforms {
     size_t height = input.height();
     size_t num_elements = width * height;
 
+    auto image_data = input.data();
+    auto dark_map_data = dark_map.data();
+
     Kokkos::parallel_for("ko::transform::dark_correct::parallel_for", num_elements, KOKKOS_LAMBDA(const int i) {
-      input.data()(i) = input.data()(i) - dark_map.data()(i) + offset;
+      image_data(i) = image_data(i) - dark_map_data(i) + offset;
     });
   }
 

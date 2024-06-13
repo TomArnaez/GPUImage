@@ -36,7 +36,20 @@ INCLUDE(CMakeFindDependencyMacro)
 
 #This needs to go above the KokkosTargets in case
 #the Kokkos targets depend in some way on the TPL imports
-
+IF(NOT TARGET CUDA::cudart)
+ADD_LIBRARY(CUDA::cudart INTERFACE IMPORTED)
+SET_TARGET_PROPERTIES(CUDA::cudart PROPERTIES
+INTERFACE_INCLUDE_DIRECTORIES "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.5/include"
+INTERFACE_LINK_LIBRARIES "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.5/lib/x64/cudart.lib"
+)
+ENDIF()
+IF(NOT TARGET CUDA::cuda_driver)
+ADD_LIBRARY(CUDA::cuda_driver INTERFACE IMPORTED)
+SET_TARGET_PROPERTIES(CUDA::cuda_driver PROPERTIES
+INTERFACE_INCLUDE_DIRECTORIES "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.5/include"
+INTERFACE_LINK_LIBRARIES "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.5/lib/x64/cuda.lib"
+)
+ENDIF()
 
 GET_FILENAME_COMPONENT(Kokkos_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
 INCLUDE("${Kokkos_CMAKE_DIR}/KokkosTargets.cmake")
@@ -63,8 +76,8 @@ IF("launch_compiler" IN_LIST Kokkos_FIND_COMPONENTS)
         GLOBAL
         CHECK_CUDA_COMPILES)
 
-ELSEIF(OFF
-    AND NOT CXX STREQUAL CUDA
+ELSEIF(ON
+    AND NOT CUDA STREQUAL CUDA
     AND NOT "separable_compilation" IN_LIST Kokkos_FIND_COMPONENTS)
     #
     # if CUDA was enabled, the compilation language was not set to CUDA, and separable compilation was not
@@ -87,4 +100,4 @@ ELSEIF(OFF
     UNSET(IS_NVCC)
 ENDIF()
 
-set(Kokkos_COMPILE_LANGUAGE CXX)
+set(Kokkos_COMPILE_LANGUAGE CUDA)

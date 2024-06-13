@@ -19,7 +19,7 @@ set(CMAKE_IMPORT_FILE_VERSION 1)
 set(_cmake_targets_defined "")
 set(_cmake_targets_not_defined "")
 set(_cmake_expected_targets "")
-foreach(_cmake_expected_target IN ITEMS Kokkos::kokkoscore Kokkos::kokkoscontainers Kokkos::kokkosalgorithms Kokkos::kokkossimd Kokkos::kokkos)
+foreach(_cmake_expected_target IN ITEMS Kokkos::CUDA Kokkos::kokkoscore Kokkos::kokkoscontainers Kokkos::kokkosalgorithms Kokkos::kokkossimd Kokkos::kokkos)
   list(APPEND _cmake_expected_targets "${_cmake_expected_target}")
   if(TARGET "${_cmake_expected_target}")
     list(APPEND _cmake_targets_defined "${_cmake_expected_target}")
@@ -55,14 +55,22 @@ if(_IMPORT_PREFIX STREQUAL "/")
   set(_IMPORT_PREFIX "")
 endif()
 
+# Create imported target Kokkos::CUDA
+add_library(Kokkos::CUDA INTERFACE IMPORTED)
+
+set_target_properties(Kokkos::CUDA PROPERTIES
+  INTERFACE_LINK_LIBRARIES "CUDA::cuda_driver;CUDA::cudart"
+)
+
 # Create imported target Kokkos::kokkoscore
 add_library(Kokkos::kokkoscore STATIC IMPORTED)
 
 set_target_properties(Kokkos::kokkoscore PROPERTIES
-  INTERFACE_COMPILE_DEFINITIONS "\$<\$<COMPILE_LANGUAGE:CXX>:KOKKOS_DEPENDENCE>"
+  INTERFACE_COMPILE_DEFINITIONS "\$<\$<COMPILE_LANGUAGE:CUDA>:KOKKOS_DEPENDENCE>"
   INTERFACE_COMPILE_FEATURES "cxx_std_17"
-  INTERFACE_COMPILE_OPTIONS "\$<\$<COMPILE_LANGUAGE:CXX>:>"
+  INTERFACE_COMPILE_OPTIONS "\$<\$<COMPILE_LANGUAGE:CUDA>:>;\$<\$<COMPILE_LANGUAGE:CUDA>:-extended-lambda;-Wext-lambda-captures-this>;\$<\$<COMPILE_LANGUAGE:CUDA>:>"
   INTERFACE_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include"
+  INTERFACE_LINK_LIBRARIES "Kokkos::CUDA"
 )
 
 # Create imported target Kokkos::kokkoscontainers

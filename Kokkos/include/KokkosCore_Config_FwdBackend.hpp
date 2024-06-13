@@ -20,6 +20,7 @@
 #define KOKKOS_FWD_HPP_
 
 #include <fwd/Kokkos_Fwd_SERIAL.hpp>
+#include <fwd/Kokkos_Fwd_CUDA.hpp>
 
 
 #endif

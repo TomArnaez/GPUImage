@@ -20,6 +20,7 @@
 #define KOKKOS_DECLARE_HPP_
 
 #include <decl/Kokkos_Declare_SERIAL.hpp>
+#include <decl/Kokkos_Declare_CUDA.hpp>
 
 
 #endif

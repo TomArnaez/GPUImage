@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 3.29)
 
-project(GPUImage)
+project(GPUImage CXX CUDA)
 
 set(KOKKOS_DIR "${CMAKE_SOURCE_DIR}/Kokkos/lib/cmake/Kokkos")
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CUDA_ARCHITECTURES 86)
 
 message(STATUS "Kokkos directory: ${KOKKOS_DIR}")
 
@@ -19,7 +21,8 @@ target_sources(GPUImage
     include/transforms.hpp
     include/statistics.hpp
 )
-
-target_compile_features(GPUImage PRIVATE cxx_std_20)
+set_target_properties(GPUImage PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+get_target_property(source_files GPUImage SOURCES)
+set_source_files_properties(${source_files} PROPERTIES LANGUAGE CUDA)
 target_link_libraries(GPUImage Kokkos::kokkos)
 target_include_directories(GPUImage PUBLIC ${Kokkos_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/include)

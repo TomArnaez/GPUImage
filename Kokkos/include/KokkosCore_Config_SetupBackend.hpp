@@ -19,6 +19,7 @@
 #ifndef KOKKOS_SETUP_HPP_
 #define KOKKOS_SETUP_HPP_
 
+#include <setup/Kokkos_Setup_Cuda.hpp>
 
 
 #endif
