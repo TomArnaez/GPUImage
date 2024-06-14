@@ -4,8 +4,8 @@ AdditionalCompilerOptions=
 AdditionalDependencies=
 AdditionalDeps=
 AdditionalLibraryDirectories=
-AdditionalOptions= -std=c++20 --generate-code=arch=compute_86,code=[compute_86,sm_86] -extended-lambda -Wext-lambda-captures-this -Xcompiler="/EHsc -Ob2"
-AdditionalOptions= -std=c++20 --generate-code=arch=compute_86,code=[compute_86,sm_86] -extended-lambda -Wext-lambda-captures-this -Xcompiler="/EHsc -Ob2"
+AdditionalOptions= -std=c++20 --generate-code=arch=compute_75,code=[compute_75,sm_75] -extended-lambda -Wext-lambda-captures-this -Xcompiler="/EHsc -Ob2"
+AdditionalOptions= -std=c++20 --generate-code=arch=compute_75,code=[compute_75,sm_75] -extended-lambda -Wext-lambda-captures-this -Xcompiler="/EHsc -Ob2"
 CodeGeneration=
 CodeGeneration=
 CompileOut=GPUImage.dir\Release\transforms.obj
@@ -27,7 +27,7 @@ Include=C:\dev\repos\GPUImage\include;C:\dev\repos\GPUImage\Kokkos\include;C:\Pr
 Inputs=
 InterleaveSourceInPTX=false
 Keep=false
-KeepDir=x64\Release
+KeepDir=GPUImage\x64\Release
 LinkOut=
 MaxRegCount=0
 NvccCompilation=compile

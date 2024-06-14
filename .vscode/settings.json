@@ -78,6 +78,7 @@
       "xstddef": "cpp",
       "xtr1common": "cpp",
       "xtree": "cpp",
-      "*.inc": "cpp"
+      "*.inc": "cpp",
+      "mdspan": "cpp"
     }
 }

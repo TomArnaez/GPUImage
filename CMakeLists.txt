@@ -1,10 +1,10 @@
-cmake_minimum_required(VERSION 3.29)
+cmake_minimum_required(VERSION 3.28.2)
 
 project(GPUImage CXX CUDA)
 
 set(KOKKOS_DIR "${CMAKE_SOURCE_DIR}/Kokkos/lib/cmake/Kokkos")
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CUDA_ARCHITECTURES 86)
+set(CMAKE_CUDA_ARCHITECTURES 75)
 
 message(STATUS "Kokkos directory: ${KOKKOS_DIR}")
 
