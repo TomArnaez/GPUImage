@@ -11,18 +11,21 @@ message(STATUS "Kokkos directory: ${KOKKOS_DIR}")
 add_executable(GPUImage)
 
 find_package(Kokkos REQUIRED PATHS ${KOKKOS_DIR})
+find_package(OpenCV CONFIG REQUIRED)
+find_path(MATPLOTLIB_CPP_INCLUDE_DIRS ")matplotlibcpp.h")
+find_package(Python3 COMPONENTS Development REQUIRED)
 
 target_sources(GPUImage
   PRIVATE
     main.cpp
-    image.cpp
   PUBLIC
     include/concepts.hpp
+    include/image.hpp
     include/transforms.hpp
     include/statistics.hpp
 )
 set_target_properties(GPUImage PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 get_target_property(source_files GPUImage SOURCES)
 set_source_files_properties(${source_files} PROPERTIES LANGUAGE CUDA)
-target_link_libraries(GPUImage Kokkos::kokkos)
-target_include_directories(GPUImage PUBLIC ${Kokkos_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(GPUImage Kokkos::kokkos ${OpenCV_LIBS} ${Python3_LIBRARIES})
+target_include_directories(GPUImage PUBLIC ${Kokkos_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/include ${MATPLOTLIB_CPP_INCLUDE_DIRS} ${Python3_INCLUDE_DIRS})

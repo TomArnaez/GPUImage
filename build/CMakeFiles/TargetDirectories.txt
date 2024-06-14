@@ -1,3 +1,0 @@
-C:/dev/repos/GPUImage/build/CMakeFiles/GPUImage.dir
-C:/dev/repos/GPUImage/build/CMakeFiles/ALL_BUILD.dir
-C:/dev/repos/GPUImage/build/CMakeFiles/ZERO_CHECK.dir

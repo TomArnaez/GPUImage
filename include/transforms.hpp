@@ -1,25 +1,102 @@
 #pragma once
 
 #include <concepts.hpp>
+#include <kokkos.hpp>
 #include <image.hpp>
+#include <statistics.hpp>
 
 namespace ko::transforms {
-  /**
-   * @brief Performs dark correction on an image.
-   */
-  template<ko::concepts::image I>
-  void dark_correct(I input, I dark_map, typename I::value_type offset) {
-    size_t width = input.width();
-    size_t height = input.height();
-    size_t num_elements = width * height;
+  template<typename T>
+  void dark_correction(
+    Kokkos::View<T**, Kokkos::LayoutRight> input,
+    Kokkos::View<T**, Kokkos::LayoutRight> dark,
+    T offset,
+    T min,
+    T max
+  ) {
+    size_t num_rows = input.extent(0);
+    size_t num_cols = input.extent(1);
 
-    auto image_data = input.data();
-    auto dark_map_data = dark_map.data();
+    Kokkos::MDRangePolicy<Kokkos::Rank<2>> policy({0, 0}, {num_rows, num_cols});
 
-    Kokkos::parallel_for("ko::transform::dark_correct::parallel_for", num_elements, KOKKOS_LAMBDA(const int i) {
-      image_data(i) = image_data(i) - dark_map_data(i) + offset;
+    Kokkos::parallel_for("dark_correction", policy, KOKKOS_LAMBDA(const int i, const int j) {
+      T val = input(i, j) - dark(i, j) + offset;
+      input(i, j) = Kokkos::clamp(val, min, max);
     });
   }
+
+  template<typename T>
+  void gain_correction(
+    Kokkos::View<T**, Kokkos::LayoutRight> input,
+    Kokkos::View<double**, Kokkos::LayoutRight> normed_gain,
+    T min,
+    T max
+  ) {
+    size_t num_rows = input.extent(0);
+    size_t num_cols = input.extent(1);
+
+    Kokkos::MDRangePolicy<Kokkos::Rank<2>> policy({0, 0}, {num_rows, num_cols});
+
+    Kokkos::parallel_for("gain_correction", policy, KOKKOS_LAMBDA(const int i, const int j) {
+      T val = input(i, j) * normed_gain(i, j);
+      input(i, j) = Kokkos::clamp(val, min, max);
+    });
+  }
+
+  template<typename T>
+  void defect_correction(
+    Kokkos::View<T**, Kokkos::LayoutRight> input, 
+    Kokkos::View<T**, Kokkos::LayoutRight> defect_map,
+    Kokkos::View<double**, Kokkos::LayoutRight> kernel) {
+    size_t kernel_size = kernel.extent(0);
+    int kernel_half_size = kernel_size / 2;
+
+    size_t num_rows = input.extent(0);
+    size_t num_cols = input.extent(1);
+
+    Kokkos::MDRangePolicy<Kokkos::Rank<2>> policy({0, 0}, {num_rows, num_cols});
+
+    Kokkos::parallel_for("apply_defect_correction", policy, KOKKOS_LAMBDA(const int i, const int j) {
+        if (defect_map(i, j) == 1) {
+            double sum = 0.0;
+            double weight_sum = 0.0;
+
+            for (int ki = -kernel_half_size; ki <= kernel_half_size; ++ki) {
+                for (int kj = -kernel_half_size; kj <= kernel_half_size; ++kj) {
+                    int ni = i + ki;
+                    int nj = j + kj;
+
+                    if (ni >= 0 && ni < num_rows && nj >= 0 && nj < num_cols && !defect_map(ni, nj)) {
+                        sum += input(ni, nj) * kernel(ki + kernel_half_size, kj + kernel_half_size);
+                        weight_sum += kernel(ki + kernel_half_size, kj + kernel_half_size);
+                    }
+                }
+            }
+
+            if (weight_sum > 0.0) {
+                input(i, j) = sum / weight_sum;
+            }
+        }
+    });
+  }
+
+  template<typename T>
+  void normalise(Kokkos::View<double**, Kokkos::LayoutRight> norm, Kokkos::View<T**, Kokkos::LayoutRight> input) {
+    size_t num_rows = input.extent(0);
+    size_t num_cols = input.extent(1);
+
+    Kokkos::MDRangePolicy<Kokkos::Rank<2>> policy({0, 0}, {num_rows, num_cols});
+
+    double mean = ko::statistics::mean(input);
+
+    std::cout << mean << std::endl;
+
+    Kokkos::parallel_for("normalising", policy, KOKKOS_LAMBDA(const int x, const int y) {
+      T val = input(x, y);
+      norm(x, y) = val == 0 ? 1 : mean / val;
+    });
+  }
+
 
   /**
    * @brief Performs histogram equalisation on an image.
