@@ -1,42 +1,30 @@
 #pragma once
 
 #include <concepts.hpp>
-#include <kokkos.hpp>
+#include <kokkos_types.hpp>
+#include <image.hpp>
 #include <iostream>
 
 namespace ko::statistics {
   template<typename T>
-  double mean(Kokkos::View<T**, Kokkos::LayoutRight> input) {
-    size_t num_rows = input.extent(0);
-    size_t num_cols = input.extent(1);
-
-    Kokkos::MDRangePolicy<Kokkos::Rank<2>> policy({0, 0}, {num_rows, num_cols});
-    double sum_value = 0.0;
-
-    Kokkos::parallel_reduce(
-      "calculate_mean",
-      policy,
-      KOKKOS_LAMBDA(const int i, const int j, double& local_sum) {
-        local_sum += static_cast<double>(input(i, j));
-      },
-      Kokkos::Sum<double>(sum_value)
-    );
-
-    return sum_value / (num_rows * num_cols);
+  double mean(const ko::image::image_2d<T> img) {
+      auto data = img.data();
+      double sum_value = 0.0;
+      img.parallel_reduce(KOKKOS_LAMBDA(const int x, const int y, double& local_sum) {
+          local_sum += static_cast<double>(data(x, y));
+      }, Kokkos::Sum<double>(sum_value));
+      return sum_value / img.element_count();
   }
 
   template<typename T>
-  void simple_histogram(view<int*> histogram, Kokkos::View<T**, Kokkos::LayoutRight> input, T min, T max) {
-    size_t num_rows = input.extent(0);
-    size_t num_cols = input.extent(1);
+  void simple_histogram(view<int*> histogram, ko::image::image_2d<T> input, T min, T max) {
+    Kokkos::MDRangePolicy<Kokkos::Rank<2>> policy({0, 0}, {input.width(), input.height()});
 
-    Kokkos::MDRangePolicy<Kokkos::Rank<2>> policy({0, 0}, {num_rows, num_cols});
+    auto data = input.data();
 
-    Kokkos::parallel_for("apply_defect_correction", policy, KOKKOS_LAMBDA(const int i, const int j) {
-      int index = (1.0*(input(i, j)-min)/(max-min)) * histogram.extent(0);
+    Kokkos::parallel_for("ko::statistics::simple_histogram parallel for", policy, KOKKOS_LAMBDA(const int x, const int y) {
+      int index = (1.0*(data(x, y)-min)/(max-min)) * histogram.extent(0);
       Kokkos::atomic_increment(&histogram(index));
     });  
   }
-
-
 }

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <concepts>
-#include <kokkos.hpp>
+#include <kokkos_types.hpp>
 
 namespace ko::concepts {
   template<typename T>
@@ -13,6 +13,6 @@ namespace ko::concepts {
       { t.width() } -> std::same_as<size_t>;
       { t.height() } -> std::same_as<size_t>;
       { t.element_count() } -> std::same_as<size_t>;
-      { t.data() } -> std::same_as<view<typename T::value_type*>>;
+      { t.data() } -> std::same_as<view<typename T::value_type*, Kokkos::LayoutRight>>;
   };
 }

@@ -37,17 +37,17 @@ INCLUDE(CMakeFindDependencyMacro)
 #This needs to go above the KokkosTargets in case
 #the Kokkos targets depend in some way on the TPL imports
 IF(NOT TARGET CUDA::cudart)
-ADD_LIBRARY(CUDA::cudart INTERFACE IMPORTED)
+ADD_LIBRARY(CUDA::cudart UNKNOWN IMPORTED)
 SET_TARGET_PROPERTIES(CUDA::cudart PROPERTIES
+IMPORTED_LOCATION "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.5/lib/x64/cudart.lib"
 INTERFACE_INCLUDE_DIRECTORIES "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.5/include"
-INTERFACE_LINK_LIBRARIES "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.5/lib/x64/cudart.lib"
 )
 ENDIF()
 IF(NOT TARGET CUDA::cuda_driver)
-ADD_LIBRARY(CUDA::cuda_driver INTERFACE IMPORTED)
+ADD_LIBRARY(CUDA::cuda_driver UNKNOWN IMPORTED)
 SET_TARGET_PROPERTIES(CUDA::cuda_driver PROPERTIES
+IMPORTED_LOCATION "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.5/lib/x64/cuda.lib"
 INTERFACE_INCLUDE_DIRECTORIES "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.5/include"
-INTERFACE_LINK_LIBRARIES "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.5/lib/x64/cuda.lib"
 )
 ENDIF()
 

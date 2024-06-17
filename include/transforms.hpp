@@ -1,99 +1,101 @@
 #pragma once
 
 #include <concepts.hpp>
-#include <kokkos.hpp>
+#include <kokkos_types.hpp>
 #include <image.hpp>
+#include <maths.hpp>
 #include <statistics.hpp>
 
 namespace ko::transforms {
   template<typename T>
   void dark_correction(
-    Kokkos::View<T**, Kokkos::LayoutRight> input,
-    Kokkos::View<T**, Kokkos::LayoutRight> dark,
+    ko::image::image_2d<T> input,
+    ko::image::image_2d<T> dark,
     T offset,
     T min,
     T max
   ) {
-    size_t num_rows = input.extent(0);
-    size_t num_cols = input.extent(1);
+    Kokkos::MDRangePolicy<Kokkos::Rank<2>> policy({0, 0}, {input.width(), input.height()});
 
-    Kokkos::MDRangePolicy<Kokkos::Rank<2>> policy({0, 0}, {num_rows, num_cols});
+    auto input_data = input.data();
+    auto dark_data = dark.data();
 
-    Kokkos::parallel_for("dark_correction", policy, KOKKOS_LAMBDA(const int i, const int j) {
-      T val = input(i, j) - dark(i, j) + offset;
-      input(i, j) = Kokkos::clamp(val, min, max);
-    });
+    input -= dark;
+    input += offset;
+    ko::maths::clamp(input, min, max);
   }
 
   template<typename T>
   void gain_correction(
-    Kokkos::View<T**, Kokkos::LayoutRight> input,
-    Kokkos::View<double**, Kokkos::LayoutRight> normed_gain,
+    ko::image::image_2d<T> input,
+    ko::image::image_2d<double> normed_gain,
     T min,
     T max
   ) {
-    size_t num_rows = input.extent(0);
-    size_t num_cols = input.extent(1);
+    Kokkos::MDRangePolicy<Kokkos::Rank<2>> policy({0, 0}, {input.width(), input.height()});
 
-    Kokkos::MDRangePolicy<Kokkos::Rank<2>> policy({0, 0}, {num_rows, num_cols});
+    auto input_data = input.data();
+    auto normed_gain_data = normed_gain.data();
 
-    Kokkos::parallel_for("gain_correction", policy, KOKKOS_LAMBDA(const int i, const int j) {
-      T val = input(i, j) * normed_gain(i, j);
-      input(i, j) = Kokkos::clamp(val, min, max);
+    Kokkos::parallel_for("gain_correction", policy, KOKKOS_LAMBDA(const int x, const int y) {
+      T val = input_data(x, y) * normed_gain_data(x, y);
+      input_data(x, y) = Kokkos::clamp(val, min, max);
     });
   }
 
-  template<typename T>
-  void defect_correction(
-    Kokkos::View<T**, Kokkos::LayoutRight> input, 
-    Kokkos::View<T**, Kokkos::LayoutRight> defect_map,
-    Kokkos::View<double**, Kokkos::LayoutRight> kernel) {
+template<typename T>
+void defect_correction(
+    ko::image::image_2d<T> input, 
+    ko::image::image_2d<T> defect_map,
+    Kokkos::View<double**> kernel) {
+    
     size_t kernel_size = kernel.extent(0);
     int kernel_half_size = kernel_size / 2;
 
-    size_t num_rows = input.extent(0);
-    size_t num_cols = input.extent(1);
+    size_t height = input.height();
+    size_t width = input.width();
 
-    Kokkos::MDRangePolicy<Kokkos::Rank<2>> policy({0, 0}, {num_rows, num_cols});
+    Kokkos::MDRangePolicy<Kokkos::Rank<2>> policy({0, 0}, {width, height});
 
-    Kokkos::parallel_for("apply_defect_correction", policy, KOKKOS_LAMBDA(const int i, const int j) {
-        if (defect_map(i, j) == 1) {
+    auto input_data = input.data();
+    auto defect_data = defect_map.data();
+
+    Kokkos::parallel_for("apply_defect_correction", policy, KOKKOS_LAMBDA(const int x, const int y) {
+        if (defect_data(x, y) == 1) {
+
             double sum = 0.0;
             double weight_sum = 0.0;
 
-            for (int ki = -kernel_half_size; ki <= kernel_half_size; ++ki) {
-                for (int kj = -kernel_half_size; kj <= kernel_half_size; ++kj) {
-                    int ni = i + ki;
-                    int nj = j + kj;
+            for (int kx = -kernel_half_size; kx <= kernel_half_size; ++kx) {
+                for (int ky = -kernel_half_size; ky <= kernel_half_size; ++ky) {
+                    int nx = x + kx;
+                    int ny = y + ky;
 
-                    if (ni >= 0 && ni < num_rows && nj >= 0 && nj < num_cols && !defect_map(ni, nj)) {
-                        sum += input(ni, nj) * kernel(ki + kernel_half_size, kj + kernel_half_size);
-                        weight_sum += kernel(ki + kernel_half_size, kj + kernel_half_size);
+                    if (nx >= 0 && nx < width && ny >= 0 && ny < height && !defect_data(nx, ny)) {
+                        sum += input_data(nx, ny) * kernel(kx + kernel_half_size, ky + kernel_half_size);
+                        weight_sum += kernel(kx + kernel_half_size, ky + kernel_half_size);
                     }
                 }
             }
 
             if (weight_sum > 0.0) {
-                input(i, j) = sum / weight_sum;
+                input_data(x, y) = sum / weight_sum;
             }
         }
     });
-  }
+}
 
   template<typename T>
-  void normalise(Kokkos::View<double**, Kokkos::LayoutRight> norm, Kokkos::View<T**, Kokkos::LayoutRight> input) {
-    size_t num_rows = input.extent(0);
-    size_t num_cols = input.extent(1);
-
-    Kokkos::MDRangePolicy<Kokkos::Rank<2>> policy({0, 0}, {num_rows, num_cols});
+  void normalise(ko::image::image_2d<double> norm, const ko::image::image_2d<T> input) {
+    Kokkos::MDRangePolicy<Kokkos::Rank<2>> policy({0, 0}, {input.width(), input.height()});
 
     double mean = ko::statistics::mean(input);
-
-    std::cout << mean << std::endl;
+    auto input_data = input.data();
+    auto norm_data = norm.data();
 
     Kokkos::parallel_for("normalising", policy, KOKKOS_LAMBDA(const int x, const int y) {
-      T val = input(x, y);
-      norm(x, y) = val == 0 ? 1 : mean / val;
+      T val = input_data(x, y);
+      norm_data(x, y) = val == 0 ? 1 : mean / val;
     });
   }
 
@@ -103,29 +105,46 @@ namespace ko::transforms {
    * 
    * This function function calculates the cumulative histogram, normalises it, and builds a lookup table and then uses the LUT to equalise the image.
    */
-  template<ko::concepts::image I>
-  void histogram_equalisation(I image, view<size_t*> histogram, view<float*> normed_histogram_working_buffer, view<typename I::value_type*> lut_working_buffer, typename I::value_type histo_eq_range) {
-    using value_type = typename I::value_type;
-
-    const size_t image_size = image.element_count();
+  template<typename T>
+  void histogram_equalisation(
+    ko::image::image_2d<T> image,
+    view<int*> histogram, 
+    view<double*> normed_histogram_working_buffer,
+    view<T*> lut_working_buffer,
+    T histo_eq_range) {
     const size_t histogram_size = histogram.size();
-    view<value_type*> image_data = image.data();
+    const size_t image_size = image.element_count();
+    auto image_data = image.data();
 
-    Kokkos::parallel_scan("ko::transforms::histogram_equalisation::parallal_scan calculating cumulative histogram", histogram_size, KOKKOS_LAMBDA(const int i, size_t& update, const bool final) {
-      update += histogram(i);
-      if (final) histogram(i) = update;
+    Kokkos::MDRangePolicy<Kokkos::Rank<2>> policy({0, 0}, {image.width(), image.height()});
+
+    Kokkos::parallel_scan(
+      "ko::transforms::histogram_equalisation::parallal_scan calculating cumulative histogram", 
+      histogram_size, 
+      KOKKOS_LAMBDA(const int i, size_t& update, const bool final) {
+        update += histogram(i);
+        if (final) histogram(i) = update;
     });
 
-    Kokkos::parallel_for("ko::transforms::histogram_equalisation::parallel_for normalising histogram", histogram_size, KOKKOS_LAMBDA(const int i) {
-      normed_histogram_working_buffer(i) = static_cast<float>(histogram(i)) / image_size;
+    Kokkos::parallel_for(
+      "ko::transforms::histogram_equalisation::parallel_for normalising histogram",
+      histogram_size,
+      KOKKOS_LAMBDA(const int i) {
+        normed_histogram_working_buffer(i) = static_cast<float>(histogram(i)) / image_size;
     });
 
-    Kokkos::parallel_for("ko::transforms::histogram_equalisation::parallel_for building lut", histogram_size, KOKKOS_LAMBDA(const int i) {
-      lut_working_buffer(i) = static_cast<value_type>(normed_histogram_working_buffer(i) * histo_eq_range);
+    Kokkos::parallel_for(
+      "ko::transforms::histogram_equalisation::parallel_for building lut",
+      histogram_size,
+      KOKKOS_LAMBDA(const int i) {
+        lut_working_buffer(i) = static_cast<T>(normed_histogram_working_buffer(i) * histo_eq_range);
     });
 
-    Kokkos::parallel_for("ko::transforms::histogram_equalisation::parallel_for equalising image using lut", image_size, KOKKOS_LAMBDA(const int i) {
-      image_data(i) = lut_working_buffer(image_data(i));
+    Kokkos::parallel_for(
+      "ko::transforms::histogram_equalisation::parallel_for equalising image using lut",
+      policy,
+      KOKKOS_LAMBDA(const int x, const int y) {
+        image_data(x, y) = lut_working_buffer(image_data(x, y));
     });
   }
 }
