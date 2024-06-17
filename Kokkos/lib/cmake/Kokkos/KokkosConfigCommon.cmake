@@ -1,8 +1,8 @@
 SET(Kokkos_DEVICES SERIAL;CUDA)
 SET(Kokkos_OPTIONS CUDA_RELOCATABLE_DEVICE_CODE;CUDA_LAMBDA;IMPL_CUDA_MALLOC_ASYNC;DEPRECATED_CODE_4;DEPRECATION_WARNINGS;COMPILE_AS_CMAKE_LANGUAGE;IMPL_SKIP_COMPILER_MDSPAN;COMPLEX_ALIGN)
 SET(Kokkos_TPLS CUDA)
-SET(Kokkos_ARCH PASCAL60)
-SET(Kokkos_CXX_COMPILER "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.39.33519/bin/Hostx64/x64/cl.exe")
+SET(Kokkos_ARCH AMPERE86)
+SET(Kokkos_CXX_COMPILER "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.38.33130/bin/Hostx64/x64/cl.exe")
 SET(Kokkos_CXX_COMPILER_ID "NVIDIA")
 SET(Kokkos_CXX_COMPILER_VERSION "12.5.40")
 SET(Kokkos_CXX_STANDARD 17)
@@ -32,7 +32,7 @@ FOREACH(OPT ${Kokkos_OPTIONS})
 ENDFOREACH()
 
 IF(Kokkos_ENABLE_CUDA)
-  SET(Kokkos_CUDA_ARCHITECTURES 60)
+  SET(Kokkos_CUDA_ARCHITECTURES 86)
 ENDIF()
 
 IF(Kokkos_ENABLE_HIP)
@@ -226,7 +226,7 @@ FUNCTION(kokkos_compilation)
     SET(_Kokkos_ENABLE_CUDA ON)
 
     # search relative first and then absolute
-    SET(_HINTS "${CMAKE_CURRENT_LIST_DIR}/../.." "C:/Users/tomar/Downloads/kokkos/install")
+    SET(_HINTS "${CMAKE_CURRENT_LIST_DIR}/../.." "C:/Users/ThomasArnaez/Downloads/kokkos-4.3.01/install")
 
     # find kokkos_launch_compiler
     FIND_PROGRAM(Kokkos_COMPILE_LAUNCHER

@@ -4,7 +4,7 @@ project(GPUImage CXX CUDA)
 
 set(KOKKOS_DIR "${CMAKE_SOURCE_DIR}/Kokkos/lib/cmake/Kokkos")
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CUDA_ARCHITECTURES 60)
+set(CMAKE_CUDA_ARCHITECTURES 70)
 
 message(STATUS "Kokkos directory: ${KOKKOS_DIR}")
 

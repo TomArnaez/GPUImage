@@ -4,11 +4,20 @@
 #include <optional>
 
 namespace ko::image {
+  template<typename F, typename T>
+  concept parallel_for_width_height = requires(F f, const size_t x, const size_t y, view<T**> data, const size_t width, const size_t height) {
+    { f(x, y, data, width, height) } -> std::same_as<void>;
+  };
+
+  template<typename F, typename T>
+  concept parallel_for_std = requires(F f, const size_t x, const size_t y, view<T**> data) {
+    { f(x, y, data) } -> std::same_as<void>;
+  };
+
   template<typename T>
   class image_2d {
     view<T**> data_;
   public:
-    using value_type = T;
     image_2d(size_t width, size_t height)
       : data_("image_2d", width, height) {}
 
@@ -24,6 +33,28 @@ namespace ko::image {
     void parallel_for(F f) const {
       Kokkos::MDRangePolicy<Kokkos::Rank<2>> policy({0, 0}, {data_.extent(0), data_.extent(1)});
       Kokkos::parallel_for("image_2d parallel_for", policy, f);
+    }
+
+    template<typename F>
+    requires parallel_for_std<F, T>
+    void parallel_for(F func) {
+      auto data = data_;
+      Kokkos::MDRangePolicy<Kokkos::Rank<2>> policy({0, 0}, {width(), height()});
+      Kokkos::parallel_for("image_2d parallel_for", policy, KOKKOS_LAMBDA(const size_t x, const size_t y) {
+        func(x, y, data);
+      });
+    }
+
+    template<typename F>
+    requires parallel_for_width_height<F, T>  
+    void parallel_for(F func) {
+      auto data = data_;
+      auto w = width();
+      auto h = height();
+      Kokkos::MDRangePolicy<Kokkos::Rank<2>> policy({0, 0}, {w, h});
+      Kokkos::parallel_for("image_2d parallel_for", policy, KOKKOS_LAMBDA(const size_t x, const size_t y) {
+        func(x, y, data, w, h);
+      });
     }
 
     template<typename F, typename R>

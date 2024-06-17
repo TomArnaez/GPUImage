@@ -72,11 +72,12 @@ ko::image::image_2d<uint16_t> image_from_path(std::string path) {
     return image;
 }
 
-void save_image(ko::image::image_2d<uint16_t> img, std::string filepath) {
-    cv::Mat cv_img(img.height(), img.width(), CV_16UC1);
+template<typename T>
+void save_image(ko::image::image_2d<T> img, std::string filepath) {
+    cv::Mat_<T> cv_img(img.height(), img.width());
     auto host_mirror = Kokkos::create_mirror_view(img.data());
     Kokkos::deep_copy(host_mirror, img.data());
-    std::memcpy(cv_img.data, host_mirror.data(), img.element_count() * sizeof(uint16_t));
+    std::memcpy(cv_img.data, host_mirror.data(), img.element_count() * sizeof(T));
     if (!cv::imwrite(filepath, cv_img)) {
         throw std::runtime_error("Failed to save image: " + filepath);
     }
@@ -91,13 +92,12 @@ const std::string PCB_IMAGE_PATH = TEST_IMAGES_DIR + "AVG_PCB_2802_2400.tif";
 int main(int argc, char* argv[]) {
     Kokkos::initialize(argc, argv);
 
-    int kernel_size = 7;
+    int kernel_size = 9;
     uint16_t min = 0;
     uint16_t max = 16383;
     uint16_t offset = 300;
     uint16_t histo_eq_range = 256;
     constexpr size_t histogram_size = 16384;
-
 
     auto pcb_image = image_from_path(PCB_IMAGE_PATH);
     auto defect_image = image_from_path(DEFECT_IMAGE_PATH);
@@ -107,8 +107,8 @@ int main(int argc, char* argv[]) {
     view<int*> histogram("histogram", histogram_size);
     view<double*> histogram_normed_buffer("histo normed buffer", histogram_size);
     view<uint16_t*> lut("lut", histogram_size);
-
     ko::image::image_2d<double> normed_gain(pcb_image.width(), pcb_image.height());
+    ko::image::image_2d<float> mean_filtered_image(pcb_image.width(), pcb_image.height());
 
     ko::transforms::normalise(normed_gain, gain_image);
 
@@ -129,6 +129,7 @@ int main(int argc, char* argv[]) {
     ko::transforms::dark_correction(pcb_image, dark_image, offset, min, max);
     ko::transforms::gain_correction(pcb_image, normed_gain, min, max);
     ko::transforms::defect_correction(pcb_image, defect_image, kernel);
+    ko::transforms::mean_filter(pcb_image, mean_filtered_image, 5);
     ko::statistics::simple_histogram(histogram, pcb_image, min, max);
     ko::transforms::histogram_equalisation(pcb_image, histogram, histogram_normed_buffer, lut, histo_eq_range);
 
@@ -139,6 +140,7 @@ int main(int argc, char* argv[]) {
     std::cout << "corrections took " << elapsed.count() << " microseconds.\n";
 
     save_image(pcb_image, "result.tif");
+    save_image(mean_filtered_image, "mean.tif");
 
     Kokkos::finalize();
     return 0;

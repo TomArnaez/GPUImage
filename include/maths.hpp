@@ -13,6 +13,15 @@ namespace ko::maths {
     });
   }
 
+  // // TODO: Handle overflow (saturating?)
+  // template<typename T>
+  // void subtract_in_place(ko::image::image_2d<T> image1, ko::image_image_2d<T> image2) {
+  //   auto image2_data = image2.data();
+  //   image1.parallel_for(KOKKOS_LAMBDA(const size_t x, const int width, view<T**> data, const size_t width, const size_t height) {
+  //     image1_data(x, y) -= image2_data();
+  //   })
+  // }
+
   template<typename T>
   void clamp(ko::image::image_2d<T> image, T min, T max) {
     auto data = image.data();
