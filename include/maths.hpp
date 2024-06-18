@@ -13,6 +13,22 @@ namespace ko::maths {
     });
   }
 
+  template<typename T>
+  void abs_diff(ko::image::image_2d<T> image1, ko::image::image_2d<T> image2, ko::image::image_2d<T> result) {
+    auto image1_data = image1.data();
+    auto image2_data = image2.data();
+    result.parallel_for(KOKKOS_LAMBDA(const int x, const int y, view<T**> data) {
+      data(x, y) = static_cast<T>(Kokkos::abs(image1_data(x, y) - image2_data(x, y)));
+    });
+  }
+
+  template<typename T>
+  ko::image::image_2d<T> abs_diff(ko::image::image_2d<T> image1, ko::image::image_2d<T> image2) {
+    ko::image::image_2d<T> result(image1.width(), image2.width());
+    abs_diff(image1, image2, result);
+    return result;
+  }
+
   // // TODO: Handle overflow (saturating?)
   // template<typename T>
   // void subtract_in_place(ko::image::image_2d<T> image1, ko::image_image_2d<T> image2) {

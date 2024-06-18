@@ -16,7 +16,6 @@ find_package(OpenCV CONFIG REQUIRED)
 target_sources(GPUImage
   PRIVATE
     main.cpp
-  PUBLIC
     include/concepts.hpp
     include/image.hpp
     include/maths.hpp

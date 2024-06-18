@@ -16,6 +16,16 @@ namespace ko::statistics {
       return sum_value / img.element_count();
   }
 
+  template<typename T, typename Comparator>
+  size_t count(const ko::image::image_2d<T> image, Comparator comp) {
+    size_t count;
+    auto data = image.data();
+    image.parallel_reduce(KOKKOS_LAMBDA(const int x, const int y, size_t& local_count) {
+        if (comp(data(x, y))) local_count += 1;
+    }, Kokkos::Sum<size_t>(count));
+    return count;
+  }
+
   template<typename T>
   void simple_histogram(view<int*> histogram, ko::image::image_2d<T> input, T min, T max) {
     Kokkos::MDRangePolicy<Kokkos::Rank<2>> policy({0, 0}, {input.width(), input.height()});

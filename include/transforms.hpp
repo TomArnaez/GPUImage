@@ -144,67 +144,66 @@ void defect_correction(
 
   template<typename T>
   void mean_filter(ko::image::image_2d<T> input, ko::image::image_2d<float> mean_filtered_image, size_t window_size) {
-    
-    auto start = std::chrono::high_resolution_clock::now();
     auto mean_data = mean_filtered_image.data();
     auto input_data = input.data();
 
-    // view<float**> kernel("kernel", window_size, window_size);
-    // Kokkos::MDRangePolicy<Kokkos::Rank<2>> policy({0, 0}, {window_size, window_size});
-
-    // Kokkos::parallel_for("initialize_kernel", policy, KOKKOS_LAMBDA(const size_t x, const size_t y) {
-    //     kernel(x, y) = 1.0;
-    // });
     constexpr size_t team_size = 1024;
-    const size_t threads_per_team = input_data.size() / team_size;
+    const size_t league_size = input_data.size() / team_size;
 
-    Kokkos::TeamPolicy<> team_policy(team_size, threads_per_team);
-    // size_t bytes_per_team = window_size * window_size * sizeof(double);
-    // printf("%d\n", input_data.size());
-    // team_policy.set_scratch_size(0, Kokkos::PerTeam(bytes_per_team));
+    Kokkos::TeamPolicy<> team_policy(league_size, team_size);
 
-    printf("%d\n", input_data.extent(0));
+    int window_half_size = window_size / 2;
 
-    Kokkos::parallel_for(team_policy, KOKKOS_LAMBDA(const Kokkos::TeamPolicy<>::member_type& team_member) {
-      Kokkos::parallel_for(Kokkos::TeamThreadRange(team_member, threads_per_team), 
-      [=](const int& i) {
-        const int idx = team_member.league_rank() * i;
-        int x = idx % input_data.extent(0);
-        int y = idx / input_data.extent(0);
-
-        double sum = 0.0;
-        Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team_member, window_size * window_size),
-        [=](int i, double& l_sum) {
-          l_sum += 1.0;
-        }, sum);
-
-        // mean_data(x, y) = input_data(x, y) * 1.0;
-        mean_data(x, y) = 25.0;
-      });
+    input.parallel_for(KOKKOS_LAMBDA(const int x, const int y, view<T**> input_data) {
+        float sum = 0.0;
+        int count = 0;
+        for (int win_x = 0; win_x < window_size; ++win_x)
+          for (int win_y = 0; win_y < window_size; ++win_y) {
+            int nx = x - window_half_size + win_x;
+            int ny = y - window_half_size + win_y;
+            if (nx >= 0 && nx < input_data.extent(0) && ny >= 0 && ny < input_data.extent(1)) {
+              sum += input_data(nx, ny);
+              count++;
+            } 
+          }
+        mean_data(x, y) = sum / count;
     });
-
-    Kokkos::fence();
-
-    auto end = std::chrono::high_resolution_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    std::cout << "parallel for took" << elapsed.count() << " microseconds.\n";
-
-    // Kokkos::parallel_for("test", team_policy())
-
-    // input.parallel_for(KOKKOS_LAMBDA(const size_t x, const size_t y, view<T**> data, const size_t width, const size_t height) {
-    //   int x_start = x < window_size / 2 ? 0 : x - window_size / 2;
-    //   int y_start = y < window_size / 2 ? 0 : y - window_size / 2;
-    //   int x_end = x + window_size / 2 + 1 > width ? width : x + window_size / 2 + 1;
-    //   int y_end = y + window_size / 2 + 1 > height ? height : y + window_size / 2 + 1;
-    //   int mean_win_size_x = x_end - x_start;
-    //   int mean_win_size_y = y_end - y_start;
-
-    //   // printf("%d %d %d %d %d %d\n", x_start, x_end, y_start, y_end, mean_win_size_x, mean_win_size_y);
-
-    //   view<T**> input_subview = Kokkos::subview(input_data, Kokkos::make_pair(x_start, x_end), Kokkos::make_pair(y_start, y_end));
-    //   view<float**> mean_kernel_subview = Kokkos::subview(kernel, Kokkos::make_pair(0, mean_win_size_x), Kokkos::make_pair(0, mean_win_size_y));
-
-    //   mean_data(x, y) = dot_product<T, float, float>(input_subview, mean_kernel_subview);
-    // });
   }
+
+  template<typename T>
+  struct mean_filter_shared_mem {
+    using shared_thread_space = view<T**, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+    using team_member = typename Kokkos::TeamPolicy<>::member_type;
+
+    view<T**> input_;
+    view<float**> result_;
+    size_t window_size_;
+
+    mean_filter_shared_mem(view<T**> input, view<float**> result, size_t window_size) : 
+    input_(input), result_(result), window_size_(window_size) {}
+
+    void run(view<T**> input, view<float**> result) {
+      const size_t league_size = input_.size() / 32;
+      const size_t team_size = 32;
+      size_t shared_thread_mem_size = window_size_ * window_size_ * input_.size() * sizeof(T);
+      Kokkos::parallel_for(Kokkos::TeamPolicy<>(league_size, team_size, 16), KOKKOS_LAMBDA(const team_member& team) {
+        Kokkos::parallel_for(Kokkos::TeamThreadRange(team, team_size), [&](const int i) {
+          size_t k = team.league_rank() * league_size * i;
+          
+          size_t x = k % input.extent(0);
+          size_t y = k / input.extent(0);
+
+          float sum = 0;
+          Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, 1), [&](int j, float& local_sum) {
+            local_sum += 1;
+          }, sum);
+
+          Kokkos::single(Kokkos::PerThread(team), [=]() {
+            printf("%d %d %d %d\n", i, k, x, y);
+            // result(x, y) = 5;
+          });
+        });
+      });
+    }
+  };
 }
