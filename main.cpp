@@ -9,8 +9,85 @@
 #include <iostream>
 #include <opencv2/opencv.hpp>
 #include <chrono>
-#include <type_traits>
-#include <typeinfo>
+
+using team_member = typename Kokkos::TeamPolicy<>::member_type;
+
+template<typename T, typename Layout>
+KOKKOS_INLINE_FUNCTION void mean_filter_helper(view<T*, Layout> data, size_t filter_size, float scale) {
+  size_t size = data.size();
+  int val = 0;
+
+  // do left boundary
+  val = data(0) * filter_size;
+
+  for (int x = 0; x < filter_size + 1; x++) val += data(x);
+  data(0) = val * scale;
+
+  for (int x = 1; x < filter_size + 1; ++x) {
+    val += data(x + filter_size);
+    val -= data(0);
+    data(x) = val * scale;
+  }
+
+  // main loop
+  for (int x = filter_size + 1; x < size - filter_size; x++) {
+    val += data(x + filter_size);
+    val -= data(x - filter_size - 1);
+    data(x) = val * scale;
+  }
+
+  // do right boundary
+  for (int x = size - filter_size; x < size; ++x) {
+    val += data(size - 1);
+    val -= data(x - filter_size - 1);
+    data(x) = val * scale;
+  }
+}
+
+template<typename T>
+void mean_filter(view<T**> data, size_t filter_size) {
+    float scale = 1.0f / static_cast<float>((filter_size << 1) + 1);
+
+    Kokkos::parallel_for("HorizontalMeanFilter", Kokkos::RangePolicy<>(0, data.extent(1)), KOKKOS_LAMBDA(int height) {
+      auto row_view = Kokkos::subview(data, Kokkos::ALL(), height);
+      mean_filter_helper<T, Kokkos::LayoutRight>(row_view, filter_size, scale);
+    });
+
+    // Kokkos::parallel_for("VerticalMeanFilter", Kokkos::RangePolicy<>(0, data.extent(0)), KOKKOS_LAMBDA(int width) {
+    //   auto col_view = Kokkos::subview(data, width, Kokkos::ALL());
+    //   mean_filter_helper<T, Kokkos::LayoutStride>(col_view, filter_size, scale);
+    // });
+}
+
+template<typename T>
+struct mean_filter_test {
+    view<T**> data_;
+    size_t window_size_;
+    size_t window_half_size_;
+
+    mean_filter_test(view<T**> data, size_t window_size) 
+        : data_(data), window_size_(window_size), window_half_size_(window_size / 2) {}
+
+    KOKKOS_INLINE_FUNCTION
+    void operator()(const team_member& thread) const {
+      Kokkos::parallel_for(
+        Kokkos::TeamThreadRange(thread, 32),
+        [=, *this](const int thread_idx) {
+          int idx = thread_idx * thread.league_rank() * thread.team_size();
+          int x = idx % data_.extent(0);
+          int y = idx / data_.extent(1);
+
+          int tsum = 0;
+
+          if (idx < data_.size())
+            Kokkos::single(Kokkos::PerThread(thread), [=]() { data_(x, y) = tsum / (window_size_ * window_size_); });
+        });
+    }
+
+    size_t thread_shmem_size(int team_size) const {
+        return window_size_ * window_size_ * sizeof(T);
+    }
+};
 
 ko::image::image_2d<uint16_t> image_from_path(std::string path) {
     cv::Mat mat = cv::imread(path, cv::IMREAD_UNCHANGED);
@@ -41,8 +118,18 @@ const std::string PCB_IMAGE_PATH = TEST_IMAGES_DIR + "AVG_PCB_2802_2400.tif";
 
 int main(int argc, char* argv[]) {
     Kokkos::initialize(argc, argv);
-    
-    constexpr int defect_kernel_size = 11;
+
+    { 
+      auto test_image = image_from_path(PCB_IMAGE_PATH);
+      auto start = std::chrono::high_resolution_clock::now();
+      mean_filter<uint16_t>(test_image.data(), 5);
+      auto end = std::chrono::high_resolution_clock::now();
+      auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+      std::cout << "mean took " << elapsed.count() << " microseconds.\n";
+      save_image(test_image, "new mean filter.tif");
+    }
+
+    constexpr int defect_kernel_size = 7;
     constexpr uint16_t min = 0;
     constexpr uint16_t max = 16383;
     constexpr uint16_t offset = 300;
@@ -87,11 +174,9 @@ int main(int argc, char* argv[]) {
     ko::transforms::dark_correction(pcb_image, dark_image, offset, min, max);
     ko::transforms::gain_correction(pcb_image, normed_gain, min, max);
     ko::transforms::defect_correction(pcb_image, defect_image, kernel);
-    mean_functor.run(pcb_image.data(),  mean_filtered_image.data());
+    // mean_functor.run(pcb_image.data(),  mean_filtered_image.data());
     // ko::transforms::mean_filter(pcb_image, mean_filtered_image, mean_filter_window_size);
-
     size_t count = ko::statistics::count(pcb_image, comp);
-
     ko::statistics::simple_histogram(histogram, pcb_image, min, max);
     ko::transforms::histogram_equalisation(pcb_image, histogram, histogram_normed_buffer, lut, histo_eq_range);
 

@@ -194,14 +194,17 @@ void defect_correction(
           size_t y = k / input.extent(0);
 
           float sum = 0;
-          Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, 1), [&](int j, float& local_sum) {
-            local_sum += 1;
+          Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team, window_size_ * window_size_), [&](int j, float& local_sum) {
+            local_sum += 1.0f;
           }, sum);
 
-          Kokkos::single(Kokkos::PerThread(team), [=]() {
-            printf("%d %d %d %d\n", i, k, x, y);
-            // result(x, y) = 5;
-          });
+          Kokkos::single(Kokkos::PerThread(team), [=]() { printf("%f\n", sum); });
+
+          printf("%d %d %d %d %f\n", i, k, x, y, sum);
+
+          // Kokkos::single(Kokkos::PerThread(team), [=]() {
+          //   printf("%d %d %d %d\n", i, k, x, y);
+          // });
         });
       });
     }
